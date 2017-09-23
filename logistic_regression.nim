@@ -46,7 +46,7 @@ except:
 # Preprocess input data, all pixels for each image are flattened into
 # column vectors, thus different columns stores different examples
 let
-  num_features = train_dataset_x.channels * train_dataset_x.height * train_dataset_x.width
+  num_features = train_dataset_x.shape[1] * train_dataset_x.shape[2] * train_dataset_x.shape[3]
   m_train = train_dataset_x.shape[0]
   m_test = test_dataset_x.shape[0]
 var
@@ -118,6 +118,7 @@ echo "Total number of parameters: ", num_features + 1
 
 # Train on data
 echo "Training..."
+timer()
 train(w, b, train_x, train_y,
       max_iterations=2000,
       learning_rate=5e-3f)

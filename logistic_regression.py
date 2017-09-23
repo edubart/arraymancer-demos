@@ -82,6 +82,7 @@ print("Total number of parameters: ", num_features + 1)
 
 # Train on data
 print("Training...")
+timer('')
 train(w, b, train_x, train_y,
       max_iterations=2000,
       learning_rate=5e-3)
