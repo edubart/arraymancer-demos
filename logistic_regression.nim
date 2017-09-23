@@ -50,10 +50,10 @@ let
   m_train = train_dataset_x.shape[0]
   m_test = test_dataset_x.shape[0]
 var
-  train_x = train_dataset_x.unsafeReshape([m_train, num_features]).unsafeTranspose()
-  train_y = train_dataset_y.unsafeReshape([1, m_train])
-  test_x = test_dataset_x.unsafeReshape([m_test, num_features]).unsafeTranspose()
-  test_y = test_dataset_y.unsafeReshape([1, m_test])
+  train_x = train_dataset_x.unsafeReshape([m_train, num_features]).unsafeTranspose().asContiguous()
+  train_y = train_dataset_y.unsafeReshape([1, m_train]).asContiguous()
+  test_x = test_dataset_x.unsafeReshape([m_test, num_features]).unsafeTranspose().asContiguous()
+  test_y = test_dataset_y.unsafeReshape([1, m_test]).asContiguous()
 
 # Simple pixel normalization
 train_x /= 255.0f
@@ -73,7 +73,7 @@ proc train(w: var Tensor[float32], b: var float32, X, Y: Tensor[float32],
   let m = X.shape[1].float32
 
   for i in 1..max_iterations:
-    const optimized_version = true
+    const optimized_version = false
     when optimized_version:
       # Forward propagation
       let sb = b
