@@ -1,15 +1,5 @@
 require 'image'
 
--- Benchmarking timer
-local ptimer = torch.Timer()
-local function timer(what)
-  if what then
-    local now = os.time()
-    print(what, " [", (ptimer:time().real)* 1000, "ms]")
-  end
-  ptimer:reset()
-end
-
 -- Utilities
 local function mergeTables(t1, t2)
   local t ={}
@@ -36,7 +26,18 @@ local function loadFromDir(path)
   return t
 end
 
+-- Set default tensor type to float32
 torch.setdefaulttensortype('torch.FloatTensor')
+
+-- Benchmarking timer
+local ptimer = torch.Timer()
+local function timer(what)
+  if what then
+    local now = os.time()
+    print(what, " [", (ptimer:time().real)* 1000, "ms]")
+  end
+  ptimer:reset()
+end
 
 -- Load dataset
 local function loadDataset(path)
@@ -53,8 +54,7 @@ local train_dataset_x, train_dataset_y = loadDataset("data/catvsnoncat/train")
 local test_dataset_x, test_dataset_y = loadDataset("data/catvsnoncat/test")
 timer("Loaded data")
 
--- Preprocess input data, all pixels for each image are flattened into
--- column vectors, thus different columns stores different examples
+-- Preprocess input data, all pixels for each image are flattened into columns
 local num_features = train_dataset_x:size()[2] * train_dataset_x:size()[3] * train_dataset_x:size()[4]
 local m_train = train_dataset_x:size()[1]
 local m_test = test_dataset_x:size()[1]
@@ -66,7 +66,6 @@ local test_y = test_dataset_y:reshape(1, m_test)
 -- Already normalized to 0 - 1.0 range
 --train_x:div(255.0)
 --test_x:div(255.0)
-
 timer("Preprocessed data")
 
 -- Sigmoid function
@@ -74,7 +73,7 @@ local function apply_sigmoid(x)
   return x:neg():exp():add(1.0):cinv()
 end
 
--- Gradient descent optimize
+-- Model traning function
 local function train(w, b, X, Y, max_iterations, learning_rate)
   local m = X:size()[2]
   for i=1,max_iterations do
