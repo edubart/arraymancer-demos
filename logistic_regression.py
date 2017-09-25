@@ -94,4 +94,3 @@ test_accuracy = score(test_pred_y, test_y)
 
 print("Train accuracy: ", train_accuracy, "%")
 print("Test accuracy: ", test_accuracy, "%")
-

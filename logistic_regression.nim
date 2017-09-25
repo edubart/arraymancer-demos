@@ -97,14 +97,10 @@ echo "Test accuracy: ", test_accuracy, "%"
 # Visualize dataset samples with visdom
 try:
   let vis = newVisdomClient()
-  vis.image(tile_collection(train_dataset_x.unsafeSlice(0..<16, _, _, _).astype(uint8)), "Train Samples")
-  vis.image(tile_collection(test_dataset_x.unsafeSlice(0..<16, _, _, _).astype(uint8)), "Test Samples")
+  vis.image(tile_collection(train_dataset_x.unsafeSlice(0..<16, _, _, _)), "Train Samples")
+  vis.image(tile_collection(test_dataset_x.unsafeSlice(0..<16, _, _, _)), "Test Samples")
   for i in 0..<test_dataset_x.shape[0]:
-    var text: string
-    if test_pred_y[0, i] == 1.0f:
-      text = "is cat"
-    else:
-      text = "non cat"
+    var text = if test_pred_y[0, i] == 1.0f: "is cat" else: "non cat"
     let img = test_dataset_x.unsafeAt(i, _, _, _)
     vis.image(img, "test" & $i, text)
   timer("Data visualization sent to visdom")
