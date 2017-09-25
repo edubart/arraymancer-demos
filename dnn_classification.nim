@@ -53,82 +53,68 @@ proc initializeParameters(layerSizes: openarray[int]): auto =
   return params
 
 # Sigmoid forward and backward
-proc sigmoidForward(Z: Tensor[float32]): auto {.inline.} =
+proc sigmoidForward(Z, cache: var Tensor[float32]) {.inline.} =
   proc sigmoid(x: float32): float32 = 1.0f/(1.0f + exp(-x))
-  let A = Z.map(sigmoid)
-  let A_prev = A.unsafeView()
-  return (A, A_prev)
+  Z.apply(sigmoid)
+  cache = Z.unsafeView()
 
-proc sigmoidBackward(dA: Tensor[float32], A_prev: Tensor[float32]): auto {.inline.} =
+proc sigmoidBackward(dA: var Tensor[float32], cache: var Tensor[float32]) {.inline.} =
   proc sigmoid_derivative(s: float32): float32 = s * (1.0f - s)
-  return dA .* A_prev.map(sigmoid_derivative)
+  cache.apply(sigmoid_derivative)
+  dA .*= cache
 
 # Relu forward and backward
-proc reluForward(Z: Tensor[float32]): auto =
+proc reluForward(Z, cache: var Tensor[float32]): auto =
   proc relu(x: float32): float32 = max(0.0f, x)
-  let A = Z.map(relu)
-  return (A, Z)
+  cache = Z.unsafeView()
+  Z = Z.map(relu)
 
-proc reluBackward(dA: Tensor[float32], Z_prev: Tensor[float32]): auto {.inline.} =
+proc reluBackward(dA: var Tensor[float32], cache: var Tensor[float32]) {.inline.} =
   proc relub(x: float32): float32 =
     if x <= 0.0f:
-      return 0.0f
-    return 1.0f
-  return dA .* Z_prev.map(relub)
+      result = 0.0f
+    result = 1.0f
+  cache.apply(relub)
+  dA .*= cache
 
 # Linear forward and backward
-proc linearForward(A, W, b: Tensor[float32]): auto {.inline.} =
-  let Z = (W * A) .+ b
-  let A_prev = A.unsafeView()
-  return (Z, A_prev)
+proc linearForward(A, cache: var Tensor[float32], W, b: Tensor[float32]) {.inline.} =
+  cache = A.unsafeView()
+  A = W * A
+  A .+= b
 
-proc linearBackward(dZ, A_prev, W, b: Tensor[float32]): auto {.inline.} =
-  let m = A_prev.shape[1].float32
-  let dW = (1.0f/m) * (dZ * A_prev.unsafeTranspose())
-  let db = (1.0f/m) * sum(dZ, 1)
-  let dA_prev = W.unsafeTranspose() * dZ
-  return (dA_prev, dW, db)
+proc linearBackward(dZ: var Tensor[float32], cache, W, b: Tensor[float32], dW, dB: var Tensor[float32]) {.inline.} =
+  let m = cache.shape[1].float32
+  let factor = 1.0f/m
+  dW = factor * (dZ * cache.unsafeTranspose())
+  db = factor * sum(dZ, 1)
+  dZ = W.unsafeTranspose() * dZ
 
 # Cost function forward and backward
-proc crossEntropyForward(AL, Y: Tensor[float32]): float32 {.inline.} =
+proc crossEntropyForward(A, Y: Tensor[float32]): float32 {.inline.} =
   let m = Y.shape[1].float32
-  return (-1.0f/m) * sum((Y * ln(AL).unsafeTranspose()) + ((1.0f .- Y) * ln(1.0f .- AL).unsafeTranspose()))
+  return (-1.0f/m) * sum((Y * ln(A).unsafeTranspose()) + ((1.0f .- Y) * ln(1.0f .- A).unsafeTranspose()))
 
-proc crossEntropyBackward(AL, Y: Tensor[float32]): auto {.inline.} =
-  return - ((Y ./ AL) .- ((1.0f .- Y) ./ (1.0f .- AL)))
+proc crossEntropyBackward(dA: var Tensor[float32], A, Y: Tensor[float32]) {.inline.} =
+  dA = - ((Y ./ A) .- ((1.0f .- Y) ./ (1.0f .- A)))
 
 # Neural network forward and backward
-proc networkForward(X: Tensor[float32], params: seq[LayerParams]): auto {.inline.} =
-  var caches = newSeqOfCap[Tensor[float32]](2*params.len-1)
-  var Z, cache: Tensor[float32]
-  var A = X
+proc networkForward(X: Tensor[float32], params: seq[LayerParams], A: var Tensor[float32], caches: var seq[Tensor[float32]]): auto {.inline.} =
+  A = X.unsafeView()
   for i in 0..<params.len:
-    let W = params[i].W
-    let b = params[i].b
-    (Z, cache) = linearForward(A, W, b)
-    caches.add(cache)
+    linearForward(A, caches[i*2], params[i].W, params[i].b)
     if i == params.len-1: # Last layer activation
-      (A, cache) = sigmoidForward(Z)
+      sigmoidForward(A, caches[i*2+1])
     else:
-      (A, cache) = reluForward(Z)
-    caches.add(cache)
-  return (A, caches)
+      reluForward(A, caches[i*2+1])
 
-proc networkBackward(dAL: Tensor[float32], params: seq[LayerParams], caches: seq[Tensor[float32]]): auto {.inline.} =
-  var grads = newSeqOfCap[LayerParams](params.len)
-  var dW, dB, dZ, cache: Tensor[float32]
-  var dA = dAL.unsafeView()
-  var cacheIndex = caches.len-1
+proc networkBackward(dA: var Tensor[float32], params: seq[LayerParams], caches: var seq[Tensor[float32]], grads: var seq[LayerParams]): auto {.inline.} =
   for i in countdown(params.len-1,0):
-    cache = caches[cacheIndex]; cacheIndex.dec
     if i == params.len-1: # Last layer activation
-      dZ = sigmoidBackward(dA, cache)
+      sigmoidBackward(dA, caches[2*i+1])
     else:
-      dZ = reluBackward(dA, cache)
-    cache = caches[cacheIndex]; cacheIndex.dec
-    (dA, dW, db) = linearBackward(dZ, cache, params[i].W, params[i].b)
-    grads.insert((dW,dB))
-  return grads
+      reluBackward(dA, caches[2*i+1])
+    linearBackward(dA, caches[2*i], params[i].W, params[i].b, grads[i].W, grads[i].b)
 
 type
   AdamState = object
@@ -138,8 +124,8 @@ type
     epsilon: float32
     weight_decay: float32
     counter: int
-    vgrads: seq[LayerParams]
-    sgrads: seq[LayerParams]
+    m: seq[LayerParams]
+    v: seq[LayerParams]
 
 # Adam optimizer
 proc initializeAdam(layerSizes: openarray[int],
@@ -147,66 +133,69 @@ proc initializeAdam(layerSizes: openarray[int],
                     weight_decay = 0.0f,
                     beta1 = 0.9f,
                     beta2 = 0.999f,
-                    epsilon = 1e-8f): AdamState =
+                    epsilon = 1e-3f): AdamState =
   result.counter = 0
   result.learning_rate = learning_rate
   result.beta1 = beta1
   result.beta2 = beta2
   result.epsilon = epsilon
   result.weight_decay = weight_decay
-  result.vgrads = newSeqOfCap[LayerParams](layerSizes.len-2)
-  result.sgrads = newSeqOfCap[LayerParams](layerSizes.len-2)
+  result.m = newSeqOfCap[LayerParams](layerSizes.len-2)
+  result.v = newSeqOfCap[LayerParams](layerSizes.len-2)
   for i in 1..<layerSizes.len:
     let vW = zeros([layerSizes[i], layerSizes[i-1]], float32)
     let vb = zeros([layerSizes[i], 1], float32)
     let sW = zeros([layerSizes[i], layerSizes[i-1]], float32)
     let sb = zeros([layerSizes[i], 1], float32)
-    result.vgrads.add((vW, vb))
-    result.sgrads.add((sW, sb))
+    result.m.add((vW, vb))
+    result.v.add((sW, sb))
 
-proc optimizeAdam(params: var seq[LayerParams], grads: seq[LayerParams], state: var AdamState) {.inline.} =
+proc optimizeAdam(params: var seq[LayerParams], grads: var seq[LayerParams], state: var AdamState) {.inline.} =
   state.counter = state.counter + 1
   for i in 0..<params.len:
-    var dW = grads[i].W
-    var db = grads[i].b
-
     # L2 Regularization
     if state.weight_decay != 0.0f:
-      dW += state.weight_decay * params[i].W
-      db += state.weight_decay * params[i].b
+      grads[i].W += state.weight_decay * params[i].W
+      grads[i].b += state.weight_decay * params[i].b
 
     # Moving average of the gradients
-    state.vgrads[i].W = (state.vgrads[i].W * state.beta1) + (1.0f - state.beta1)*dW
-    state.vgrads[i].b = (state.vgrads[i].b * state.beta1) + (1.0f - state.beta1)*db
-
-    # Compute bias correct first moment estimate
-    let vW = state.vgrads[i].W / (1.0f - pow(state.beta1, state.counter.float32))
-    let vb = state.vgrads[i].b / (1.0f - pow(state.beta1, state.counter.float32))
+    state.m[i].W *= state.beta1; state.m[i].W += (1.0f - state.beta1)*grads[i].W
+    state.m[i].b *= state.beta1; state.m[i].b += (1.0f - state.beta1)*grads[i].b
 
     # Moving average of the squared gradients
-    state.sgrads[i].W = (state.sgrads[i].W * state.beta2) + (1.0f - state.beta2)*(dW .* dW)
-    state.sgrads[i].b = (state.sgrads[i].b * state.beta2) + (1.0f - state.beta2)*(db .* db)
+    grads[i].W.apply(x => x*x)
+    grads[i].b.apply(x => x*x)
+    state.v[i].W *= state.beta2; state.v[i].W += (1.0f - state.beta2)*grads[i].W
+    state.v[i].b *= state.beta2; state.v[i].b += (1.0f - state.beta2)*grads[i].b
 
-    # Compute bias corrected second moment estimate
-    let sW = state.sgrads[i].W / (1.0f - pow(state.beta2, state.counter.float32))
-    let sb = state.sgrads[i].b / (1.0f - pow(state.beta2, state.counter.float32))
+    # Temporary tensor to hold sqrt(v) + eps
+    var denomW = sqrt(state.v[i].W); denomW .+= state.epsilon
+    var denomb = sqrt(state.v[i].b); denomb .+= state.epsilon
+
+    # Compute bias correcton
+    let biasCorrection1 = 1.0f - pow(state.beta1, state.counter.float32)
+    let biasCorrection2 = 1.0f - pow(state.beta2, state.counter.float32)
 
     # Update paramaters
-    params[i].W -= state.learning_rate * (vW ./ (sqrt(sW) .+ state.epsilon))
-    params[i].b -= state.learning_rate * (vb ./ (sqrt(sb) .+ state.epsilon))
+    let step = state.learning_rate * (sqrt(biasCorrection2)/biasCorrection1)
+    params[i].W -= step * (state.m[i].W ./ denomW)
+    params[i].b -= step * (state.m[i].b ./ denomb)
 
 
 # Model traning function
 proc trainModel(layerSizes: openarray[int], X, Y: Tensor[float32], max_iterations: int, optim: var AdamState): auto =
   var params = initializeParameters(layerSizes)
+  var caches = newSeq[Tensor[float32]](2*params.len)
+  var grads = newSeq[LayerParams](params.len)
+  var A, dA: Tensor[float32]
   for i in 1..max_iterations:
     # Forward propagation
-    let (AL, caches) = networkForward(X, params)
-    let cost = crossEntropyForward(AL, Y)
+    networkForward(X, params, A, caches)
+    let cost = crossEntropyForward(A, Y)
 
     # Backward propagation
-    let dA = crossEntropyBackward(AL, Y)
-    let grads = networkBackward(dA, params, caches)
+    crossEntropyBackward(dA, A, Y)
+    networkBackward(dA, params, caches, grads)
 
     # Gradient descent
     optimizeAdam(params, grads, optim)
@@ -217,8 +206,10 @@ proc trainModel(layerSizes: openarray[int], X, Y: Tensor[float32], max_iteration
 
 # Prediction
 proc predict(X: Tensor[float32], params: seq[LayerParams]): Tensor[float32] =
-  let (AL, caches) = networkForward(X, params)
-  return AL.map(x => (x >= 0.5f).float32)
+  var caches = newSeq[Tensor[float32]](2*params.len)
+  var A: Tensor[float32]
+  networkForward(X, params, A, caches)
+  return A.map(x => (x >= 0.5f).float32)
 
 # Print some information
 echo "Training inputs shape: ", train_dataset_x.shape
@@ -233,7 +224,7 @@ timer()
 let layers = [num_features,16,8,4,1]
 var optimState = initializeAdam(layers,
   learning_rate=1e-3f,
-  weight_decay=1e-4f)
+  weight_decay=1e-3)
 let params = trainModel(
   layers,
   train_x, train_y,
