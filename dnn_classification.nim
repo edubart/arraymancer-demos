@@ -64,7 +64,7 @@ proc sigmoidBackward(dA: var Tensor[float32], cache: var Tensor[float32]) {.inli
   dA .*= cache
 
 # Relu forward and backward
-proc reluForward(Z, cache: var Tensor[float32]): auto =
+proc reluForward(Z, cache: var Tensor[float32]) =
   proc relu(x: float32): float32 = max(0.0f, x)
   cache = Z.unsafeView()
   Z = Z.map(relu)
@@ -86,20 +86,28 @@ proc linearForward(A, cache: var Tensor[float32], W, b: Tensor[float32]) {.inlin
 proc linearBackward(dZ: var Tensor[float32], cache, W, b: Tensor[float32], dW, dB: var Tensor[float32]) {.inline.} =
   let m = cache.shape[1].float32
   let factor = 1.0f/m
-  dW = factor * (dZ * cache.unsafeTranspose())
-  db = factor * sum(dZ, 1)
+  let fdZ = factor * dZ
+  dW = fdZ * cache.unsafeTranspose()
+  db = sum(fdZ, 1)
   dZ = W.unsafeTranspose() * dZ
 
 # Cost function forward and backward
 proc crossEntropyForward(A, Y: Tensor[float32]): float32 {.inline.} =
   let m = Y.shape[1].float32
-  return (-1.0f/m) * sum((Y * ln(A).unsafeTranspose()) + ((1.0f .- Y) * ln(1.0f .- A).unsafeTranspose()))
+  proc cross_entropy(a, y: float32): float32 =
+    (y * ln(a)) + ((1.0f - y) * ln(1.0f - a))
+  result = 0.0f
+  for a,y in zip(A, Y):
+    result += cross_entropy(a,y)
+  result *= -1.0f/m
 
 proc crossEntropyBackward(dA: var Tensor[float32], A, Y: Tensor[float32]) {.inline.} =
-  dA = - ((Y ./ A) .- ((1.0f .- Y) ./ (1.0f .- A)))
+  proc cross_entropy_derivative(y, a: float32): float32 =
+    - (y / a) + ((1.0f - y) / (1.0f - a))
+  dA = map2(Y, cross_entropy_derivative, A)
 
 # Neural network forward and backward
-proc networkForward(X: Tensor[float32], params: seq[LayerParams], A: var Tensor[float32], caches: var seq[Tensor[float32]]): auto {.inline.} =
+proc networkForward(X: Tensor[float32], params: seq[LayerParams], A: var Tensor[float32], caches: var seq[Tensor[float32]]) {.inline.} =
   A = X.unsafeView()
   for i in 0..<params.len:
     linearForward(A, caches[i*2], params[i].W, params[i].b)
@@ -108,7 +116,7 @@ proc networkForward(X: Tensor[float32], params: seq[LayerParams], A: var Tensor[
     else:
       reluForward(A, caches[i*2+1])
 
-proc networkBackward(dA: var Tensor[float32], params: seq[LayerParams], caches: var seq[Tensor[float32]], grads: var seq[LayerParams]): auto {.inline.} =
+proc networkBackward(dA: var Tensor[float32], params: seq[LayerParams], caches: var seq[Tensor[float32]], grads: var seq[LayerParams]) {.inline.} =
   for i in countdown(params.len-1,0):
     if i == params.len-1: # Last layer activation
       sigmoidBackward(dA, caches[2*i+1])
