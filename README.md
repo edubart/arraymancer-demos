@@ -38,9 +38,9 @@ and the loss is the binary cross entropy. Adam optimizer is used for batch gradi
 #### CPU
 | Framework | Backend | Forward+Backward Pass Time  |
 |---|---|---|
-| Arraymancer | OpenMP + OpenBLAS | 11.275ms |
 | Arraymancer | OpenMP + MKL | **6.815ms**  |
 | PyTorch | MKL | 7.320ms  |
+| Arraymancer | OpenMP + OpenBLAS | 11.275ms |
 
 #### GPU
 | Framework | Backend | Forward+Backward Pass Time  |
