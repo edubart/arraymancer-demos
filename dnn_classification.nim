@@ -81,15 +81,16 @@ proc reluBackward(dA: var Tensor[float32], cache: var Tensor[float32]) {.inline.
 proc linearForward(A, cache: var Tensor[float32], W, b: Tensor[float32]) {.inline.} =
   cache = A.unsafeView()
   A = W * A
-  A .+= b
+  A += b
 
-proc linearBackward(dZ: var Tensor[float32], cache, W, b: Tensor[float32], dW, dB: var Tensor[float32]) {.inline.} =
+proc linearBackward(dZ: var Tensor[float32], cache, W, b: Tensor[float32], dW, dB: var Tensor[float32], skip: bool) {.inline.} =
   let m = cache.shape[1].float32
   let factor = 1.0f/m
   let fdZ = factor * dZ
   dW = fdZ * cache.unsafeTranspose()
   db = sum(fdZ, 1)
-  dZ = W.unsafeTranspose() * dZ
+  if not skip:
+    dZ = W.unsafeTranspose() * dZ
 
 # Cost function forward and backward
 proc crossEntropyForward(A, Y: Tensor[float32]): float32 {.inline.} =
@@ -122,7 +123,7 @@ proc networkBackward(dA: var Tensor[float32], params: seq[LayerParams], caches: 
       sigmoidBackward(dA, caches[2*i+1])
     else:
       reluBackward(dA, caches[2*i+1])
-    linearBackward(dA, caches[2*i], params[i].W, params[i].b, grads[i].W, grads[i].b)
+    linearBackward(dA, caches[2*i], params[i].W, params[i].b, grads[i].W, grads[i].b, i == 0)
 
 type
   AdamState = object
