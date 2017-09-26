@@ -225,7 +225,6 @@ echo "Training inputs shape: ", train_dataset_x.shape
 echo "Training labels shape: ", train_dataset_y.shape
 echo "Test inputs shape: ", test_dataset_x.shape
 echo "Test labels shape: ", test_dataset_y.shape
-echo "Total number of parameters: ", num_features + 1
 
 # Train on data
 echo "Training..."

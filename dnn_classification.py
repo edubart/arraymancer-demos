@@ -77,7 +77,6 @@ print("Training inputs shape: ", train_dataset_x.shape)
 print("Training labels shape: ", train_dataset_y.shape)
 print("Test inputs shape: ", test_dataset_x.shape)
 print("Test labels shape: ", test_dataset_y.shape)
-print("Total number of parameters: ", num_features + 1)
 
 # Initialize model and loss
 model = NetworkModel([num_features,16,8,4,1])
