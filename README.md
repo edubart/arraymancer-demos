@@ -13,6 +13,7 @@ This benchmark consists of a classification on 209 RGB 3x64x64 images,
 classifying them as cats or noncats. The model is a logistic unit.
 Simple batch gradient descent is used.
 
+#### CPU
 | Framework | Backend | Forward+Backward Pass Time  |
 |---|---|---|
 | Arraymancer | OpenMP + OpenBLAS | 1.824ms |
@@ -20,6 +21,7 @@ Simple batch gradient descent is used.
 | Numpy | MKL | 0.825ms  |
 | Torch7 | MKL | 0.733ms  |
 
+#### GPU
 | Framework | Backend | Forward+Backward Pass Time  |
 |---|---|---|
 | Arraymancer | CUDA | WIP  |
@@ -33,12 +35,14 @@ neural network of layer sizes [209, 16, 8, 4, 1] (3 hidden layers + inputs/outpu
 The activation function for the hidden layers is ReLU, the layer layer activation function is Sigmoid,
 and the loss is the binary cross entropy. Adam optimizer is used for batch gradient descent.
 
+#### CPU
 | Framework | Backend | Forward+Backward Pass Time  |
 |---|---|---|
 | Arraymancer | OpenMP + OpenBLAS | 11.275ms |
 | Arraymancer | OpenMP + MKL | **6.815ms**  |
 | PyTorch | MKL | 7.320ms  |
 
+#### GPU
 | Framework | Backend | Forward+Backward Pass Time  |
 |---|---|---|
 | Arraymancer | CUDA | WIP |
