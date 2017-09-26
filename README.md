@@ -11,7 +11,7 @@ frameworks.
 
 This benchmark consists of a classification on 209 RGB 3x64x64 images,
 classifying them as cats or noncats. The model is a logistic unit.
-Simple gradient descent is used.
+Simple batch gradient descent is used.
 
 | Framework | Backend | Forward/Backward Pass Time  |
 |---|---|---|
@@ -26,7 +26,7 @@ Seme as the above benchmark, consists of a classification on 209 RGB 3x64x64 ima
 classifying them as cats or noncats. The model is a deep fully connected
 neural network of layer sizes [209, 16, 8, 4, 1] (3 hidden layers + inputs/outputs layers).
 The activation function for the hidden layers is ReLU, the final activation function is Sigmoid,
-and the loss is the binary cross entropy. Adam algorithm is used for gradient descent.
+and the loss is the binary cross entropy. Adam optimizer is used for batch gradient descent.
 
 | Framework | Backend | Forward/Backward Pass Time  |
 |---|---|---|
