@@ -87,6 +87,16 @@ optimizer = optim.Adam(model.parameters(),
     weight_decay=1e-3)
 model.train()
 
+useCuda = False
+if useCuda:
+  model = model.cuda()
+  criterion = criterion.cuda()
+  train_x = train_x.cuda()
+  train_y = train_y.cuda()
+  test_x = test_x.cuda()
+  test_y = test_y.cuda()
+  timer("Loaded tensors into CUDA")
+
 # Train on data
 print("Training...")
 timer('')
@@ -96,12 +106,12 @@ timer("Train finished!")
 # Prediction
 def predict(model, X):
     model.eval()
-    A = model(Variable(X, requires_grad=False)).data.numpy()
+    A = model(Variable(X, requires_grad=False)).data.cpu().numpy()
     return np.where(A <= 0.5, 0, 1)
 
 # Show accuracy
 def score(pred_y, y):
-    return (1.0 - np.mean(np.abs(pred_y - y.numpy()))) * 100.0
+    return (1.0 - np.mean(np.abs(pred_y - y.cpu().numpy()))) * 100.0
 
 train_pred_y = predict(model, train_x)
 test_pred_y = predict(model, test_x)

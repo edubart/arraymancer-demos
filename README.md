@@ -20,12 +20,17 @@ Simple batch gradient descent is used.
 | Numpy | MKL | 0.825ms  |
 | Torch7 | MKL | 0.733ms  |
 
+| Framework | Backend | Forward+Backward Pass Time  |
+|---|---|---|
+| Arraymancer | CUDA | WIP  |
+| Torch7 | CUDA | 0.286ms |
+
 ### Deep neural network classification
 
-Seme as the above benchmark, consists of a classification on 209 RGB 3x64x64 images,
+As the above benchmark, consists of a classification on 209 RGB 3x64x64 images,
 classifying them as cats or noncats. The model is a deep fully connected
 neural network of layer sizes [209, 16, 8, 4, 1] (3 hidden layers + inputs/outputs layers).
-The activation function for the hidden layers is ReLU, the final activation function is Sigmoid,
+The activation function for the hidden layers is ReLU, the layer layer activation function is Sigmoid,
 and the loss is the binary cross entropy. Adam optimizer is used for batch gradient descent.
 
 | Framework | Backend | Forward+Backward Pass Time  |
@@ -33,6 +38,11 @@ and the loss is the binary cross entropy. Adam optimizer is used for batch gradi
 | Arraymancer | OpenMP + OpenBLAS | 11.275ms |
 | Arraymancer | OpenMP + MKL | **6.815ms**  |
 | PyTorch | MKL | 7.320ms  |
+
+| Framework | Backend | Forward+Backward Pass Time  |
+|---|---|---|
+| Arraymancer | CUDA | WIP |
+| PyTorch | CUDA | 4.765ms |
 
 ### Benchmark machine specs
 
