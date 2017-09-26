@@ -3,10 +3,10 @@ import arraymancer, arraymancer_vision
 
 # Benchmarking timer
 proc timer*(what: string = "") =
-  var start {.global.} = cpuTime()
+  var start {.global.} = epochTime()
   if what.len > 0:
-    echo what, " [", (cpuTime() - start)* 1000, "ms]"
-  start = cpuTime()
+    echo what, " [", (epochTime() - start)* 1000, "ms]"
+  start = epochTime()
 
 # Load dataset
 proc loadDataset(path: string): auto =
