@@ -16,10 +16,10 @@ Simple batch gradient descent is used.
 #### CPU
 | Framework | Backend | Forward+Backward Pass Time  |
 |---|---|---|
-| Arraymancer | OpenMP + OpenBLAS | 1.824ms |
 | Arraymancer | OpenMP + MKL | **0.553ms**  |
-| Numpy | MKL | 0.825ms  |
 | Torch7 | MKL | 0.733ms  |
+| Numpy | MKL | 8.713ms  |
+| Arraymancer | OpenMP + OpenBLAS | 1.824ms |
 
 #### GPU
 | Framework | Backend | Forward+Backward Pass Time  |
