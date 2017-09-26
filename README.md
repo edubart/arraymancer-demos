@@ -18,8 +18,8 @@ Simple batch gradient descent is used.
 |---|---|---|
 | Arraymancer | OpenMP + MKL | **0.553ms**  |
 | Torch7 | MKL | 0.733ms  |
-| Numpy | MKL | 8.713ms  |
 | Arraymancer | OpenMP + OpenBLAS | 1.824ms |
+| Numpy | MKL | 8.713ms  |
 
 #### GPU
 | Framework | Backend | Forward+Backward Pass Time  |
