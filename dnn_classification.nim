@@ -81,7 +81,7 @@ proc reluBackward(dA: var Tensor[float32], cache: var Tensor[float32]) {.inline.
 proc linearForward(A, cache: var Tensor[float32], W, b: Tensor[float32]) {.inline.} =
   cache = A.unsafeView()
   A = W * A
-  A += b
+  A .+= b
 
 proc linearBackward(dZ: var Tensor[float32], cache, W, b: Tensor[float32], dW, dB: var Tensor[float32], skip: bool) {.inline.} =
   let m = cache.shape[1].float32
