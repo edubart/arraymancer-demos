@@ -1,4 +1,4 @@
-import sequtils, times, future, math
+import sequtils, times, future, math, os
 import arraymancer, arraymancer_vision
 
 # Benchmarking timer
@@ -13,23 +13,23 @@ proc loadDataset(path: string): auto =
   let cats = loadFromDir(path & "/cat")
   let noncats = loadFromDir(path & "/noncat")
   let inputs = concat(cats, noncats).stack()
-  let labels = concat(ones([cats.len], float32), zeros([noncats.len], float32), 0)
+  let labels = concat(ones[uint8]([cats.len]), zeros[uint8]([noncats.len]), 0)
   return (inputs, labels)
 
 echo "Loading data..."
 timer()
-var (train_dataset_x, train_dataset_y) = loadDataset("data/catvsnoncat/train")
-var (test_dataset_x, test_dataset_y) = loadDataset("data/catvsnoncat/test")
+var (train_dataset_x, train_dataset_y) = loadDataset(currentSourcePath().parentDir().joinPath("data/catvsnoncat/train"))
+var (test_dataset_x, test_dataset_y) = loadDataset(currentSourcePath().parentDir().joinPath("data/catvsnoncat/test"))
 timer("Loaded data")
 
 # Preprocess input data, all pixels for each image are flattened into columns
 let num_features = train_dataset_x.shape[1] * train_dataset_x.shape[2] * train_dataset_x.shape[3]
 let m_train = train_dataset_x.shape[0]
 let m_test = test_dataset_x.shape[0]
-var train_x = train_dataset_x.unsafeReshape([m_train, num_features]).unsafeTranspose().asContiguous().astype(float32)
-var train_y = train_dataset_y.unsafeReshape([1, m_train]).asContiguous().astype(float32)
-var test_x = test_dataset_x.unsafeReshape([m_test, num_features]).unsafeTranspose().asContiguous().astype(float32)
-var test_y = test_dataset_y.unsafeReshape([1, m_test]).asContiguous().astype(float32)
+var train_x = train_dataset_x.unsafeReshape([m_train, num_features]).unsafeTranspose().unsafeContiguous().astype(float32)
+var train_y = train_dataset_y.unsafeReshape([1, m_train]).unsafeContiguous().astype(float32)
+var test_x = test_dataset_x.unsafeReshape([m_test, num_features]).unsafeTranspose().unsafeContiguous().astype(float32)
+var test_y = test_dataset_y.unsafeReshape([1, m_test]).unsafeContiguous().astype(float32)
 
 # Simple pixel normalization
 train_x /= 255.0f
@@ -48,33 +48,27 @@ proc initializeParameters(layerSizes: openarray[int]): auto =
     var W = randomTensor([layerSizes[i], layerSizes[i-1]], 2.0).astype(float32)
     W .-= 1.0f
     W /= sqrt(layerSizes[i-1].float32)
-    let b = zeros([layerSizes[i], 1], float32)
+    let b = zeros[float32]([layerSizes[i], 1])
     params.add((W, b))
   return params
 
 # Sigmoid forward and backward
 proc sigmoidForward(Z, cache: var Tensor[float32]) {.inline.} =
-  proc sigmoid(x: float32): float32 = 1.0f/(1.0f + exp(-x))
-  Z.apply(sigmoid)
+  Z.apply_inline():
+    1.0f/(1.0f + exp(-x))
   cache = Z.unsafeView()
 
 proc sigmoidBackward(dA: var Tensor[float32], cache: var Tensor[float32]) {.inline.} =
-  proc sigmoid_derivative(s: float32): float32 = s * (1.0f - s)
-  cache.apply(sigmoid_derivative)
-  dA .*= cache
+  dA.apply2_inline(cache):
+    x * (y * (1.0f - y))
 
 # Relu forward and backward
 proc reluForward(Z, cache: var Tensor[float32]) =
-  proc relu(x: float32): float32 = max(0.0f, x)
-  cache = Z.unsafeView()
-  Z = Z.map(relu)
+  cache = Z
+  Z.apply_inline(max(0.0f, x))
 
 proc reluBackward(dA: var Tensor[float32], cache: var Tensor[float32]) {.inline.} =
-  proc relub(x: float32): float32 =
-    if x <= 0.0f:
-      result = 0.0f
-    result = 1.0f
-  cache.apply(relub)
+  cache.apply_inline(if x <= 0.0f: 0.0f else: 1.0f)
   dA .*= cache
 
 # Linear forward and backward
@@ -95,17 +89,14 @@ proc linearBackward(dZ: var Tensor[float32], cache, W, b: Tensor[float32], dW, d
 # Cost function forward and backward
 proc crossEntropyForward(A, Y: Tensor[float32]): float32 {.inline.} =
   let m = Y.shape[1].float32
-  proc cross_entropy(a, y: float32): float32 =
-    (y * ln(a)) + ((1.0f - y) * ln(1.0f - a))
   result = 0.0f
-  for a,y in zip(A, Y):
-    result += cross_entropy(a,y)
+  for a, y in zip(A, Y):
+    result += (y * ln(a)) + ((1.0f - y) * ln(1.0f - a))
   result *= -1.0f/m
 
 proc crossEntropyBackward(dA: var Tensor[float32], A, Y: Tensor[float32]) {.inline.} =
-  proc cross_entropy_derivative(y, a: float32): float32 =
-    - (y / a) + ((1.0f - y) / (1.0f - a))
-  dA = map2(Y, cross_entropy_derivative, A)
+  dA = map2_inline(A, Y):
+    - (y / x) + ((1.0f - y) / (1.0f - x))
 
 # Neural network forward and backward
 proc networkForward(X: Tensor[float32], params: seq[LayerParams], A: var Tensor[float32], caches: var seq[Tensor[float32]]) {.inline.} =
@@ -152,43 +143,59 @@ proc initializeAdam(layerSizes: openarray[int],
   result.m = newSeqOfCap[LayerParams](layerSizes.len-2)
   result.v = newSeqOfCap[LayerParams](layerSizes.len-2)
   for i in 1..<layerSizes.len:
-    let vW = zeros([layerSizes[i], layerSizes[i-1]], float32)
-    let vb = zeros([layerSizes[i], 1], float32)
-    let sW = zeros([layerSizes[i], layerSizes[i-1]], float32)
-    let sb = zeros([layerSizes[i], 1], float32)
+    let vW = zeros[float32]([layerSizes[i], layerSizes[i-1]])
+    let vb = zeros[float32]([layerSizes[i], 1])
+    let sW = zeros[float32]([layerSizes[i], layerSizes[i-1]])
+    let sb = zeros[float32]([layerSizes[i], 1])
+
     result.m.add((vW, vb))
     result.v.add((sW, sb))
 
+
 proc optimizeAdam(params: var seq[LayerParams], grads: var seq[LayerParams], state: var AdamState) {.inline.} =
   state.counter = state.counter + 1
+
+  # Cache some variables
+  let beta1 = state.beta1
+  let beta2 = state.beta2
+  let obeta1 = 1.0f - beta1
+  let obeta2 = 1.0f - beta2
+  let weight_decay = state.weight_decay
+  let epsilon = state.epsilon
+  let counter = state.counter.float32
+
+  # Compute bias correcton
+  let biasCorrection1 = 1.0f - pow(beta1, counter)
+  let biasCorrection2 = 1.0f - pow(beta2, counter)
+
+  # Calculate step size
+  let step = state.learning_rate * (sqrt(biasCorrection2)/biasCorrection1)
+
   for i in 0..<params.len:
     # L2 Regularization
-    if state.weight_decay != 0.0f:
-      grads[i].W += state.weight_decay * params[i].W
-      grads[i].b += state.weight_decay * params[i].b
+    var dW = grads[i].W.unsafeView()
+    var db = grads[i].b.unsafeView()
+    if weight_decay != 0.0f:
+      dW = map2_inline(dW, params[i].W, x + (weight_decay * y))
+      db = map2_inline(db, params[i].b, x + (weight_decay * y))
 
     # Moving average of the gradients
-    state.m[i].W *= state.beta1; state.m[i].W += (1.0f - state.beta1)*grads[i].W
-    state.m[i].b *= state.beta1; state.m[i].b += (1.0f - state.beta1)*grads[i].b
+    proc adam_calcm(m, grad: var Tensor[float32], beta1, obeta1: float32) =
+      m.apply2_inline(grad, (x * beta1) + (obeta1*y))
+    adam_calcm(state.m[i].W, dW, beta1, obeta1)
+    adam_calcm(state.m[i].b, db, beta1, obeta1)
 
     # Moving average of the squared gradients
-    grads[i].W.apply(x => x*x)
-    grads[i].b.apply(x => x*x)
-    state.v[i].W *= state.beta2; state.v[i].W += (1.0f - state.beta2)*grads[i].W
-    state.v[i].b *= state.beta2; state.v[i].b += (1.0f - state.beta2)*grads[i].b
+    proc adam_calcv(v, grad: var Tensor[float32], beta2, obeta2: float32) =
+      v.apply2_inline(grad, (x * beta2) + (obeta2*y*y))
+    adam_calcv(state.v[i].W, dW, beta2, obeta2)
+    adam_calcv(state.v[i].b, db, beta2, obeta2)
 
-    # Temporary tensor to hold sqrt(v) + eps
-    var denomW = sqrt(state.v[i].W); denomW .+= state.epsilon
-    var denomb = sqrt(state.v[i].b); denomb .+= state.epsilon
-
-    # Compute bias correcton
-    let biasCorrection1 = 1.0f - pow(state.beta1, state.counter.float32)
-    let biasCorrection2 = 1.0f - pow(state.beta2, state.counter.float32)
-
-    # Update paramaters
-    let step = state.learning_rate * (sqrt(biasCorrection2)/biasCorrection1)
-    params[i].W -= step * (state.m[i].W ./ denomW)
-    params[i].b -= step * (state.m[i].b ./ denomb)
+    # Update params
+    proc adam_update_grads(param, m, v: var Tensor[float32], step, epsilon: float32) =
+      param.apply3_inline(m, v, x - (step * (y / (sqrt(z) + epsilon))))
+    adam_update_grads(params[i].W, state.m[i].W, state.v[i].W, step, epsilon)
+    adam_update_grads(params[i].b, state.m[i].b, state.v[i].b, step, epsilon)
 
 
 # Model traning function
@@ -209,16 +216,16 @@ proc trainModel(layerSizes: openarray[int], X, Y: Tensor[float32], max_iteration
     # Gradient descent
     optimizeAdam(params, grads, optim)
 
-    if i == 1 or i mod 2 == 0:
+    if i == 1 or i mod 10 == 0:
       echo "Cost after iteration ", i, ": ", cost
   return params
 
 # Prediction
-proc predict(X: Tensor[float32], params: seq[LayerParams]): Tensor[float32] =
+proc predict(X: Tensor[float32], params: seq[LayerParams]): Tensor[float32] {.noInit.} =
   var caches = newSeq[Tensor[float32]](2*params.len)
   var A: Tensor[float32]
   networkForward(X, params, A, caches)
-  return A.map(x => (x >= 0.5f).float32)
+  return A.map_inline((x >= 0.5f).float32)
 
 # Print some information
 echo "Training inputs shape: ", train_dataset_x.shape

@@ -69,7 +69,7 @@ def train(model, criterion, optim, X, Y, max_iterations):
         loss.backward()
         optimizer.step()
 
-        if i == 1 or i % 2 == 0:
+        if i == 1 or i % 10 == 0:
             print("Cost after iteration ", i, ": ", cost)
 
 # Print some information
@@ -89,6 +89,7 @@ model.train()
 
 useCuda = False
 if useCuda:
+  timer('')
   model = model.cuda()
   criterion = criterion.cuda()
   train_x = train_x.cuda()
