@@ -45,9 +45,9 @@ type
 proc initializeParameters(layerSizes: openarray[int]): auto =
   var params = newSeqOfCap[LayerParams](layerSizes.len-2)
   for i in 1..<layerSizes.len:
-    var W = randomTensor([layerSizes[i], layerSizes[i-1]], 2.0).astype(float32)
-    W .-= 1.0f
-    W /= sqrt(layerSizes[i-1].float32)
+    # Kaiming uniform initialization (He initialisation)
+    let bound = sqrt(6.0f/layerSizes[i-1].float32)
+    var W = randomTensor([layerSizes[i], layerSizes[i-1]], -bound..bound)
     let b = zeros[float32]([layerSizes[i], 1])
     params.add((W, b))
   return params
