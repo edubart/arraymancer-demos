@@ -28,9 +28,9 @@ num_features = train_dataset_x.shape[1] * train_dataset_x.shape[2] * train_datas
 m_train = train_dataset_x.shape[0]
 m_test = test_dataset_x.shape[0]
 train_x = train_dataset_x.reshape((m_train, num_features)).transpose().astype(np.float32)
-train_y = train_dataset_y.reshape((1, m_train))
+train_y = train_dataset_y.reshape((1, m_train)).astype(np.float32)
 test_x = test_dataset_x.reshape((m_test, num_features)).transpose().astype(np.float32)
-test_y = test_dataset_y.reshape((1, m_test))
+test_y = test_dataset_y.reshape((1, m_test)).astype(np.float32)
 
 # Simple pixel normalization
 train_x /= 255.0
@@ -67,7 +67,7 @@ def predict(w, b, X):
     return np.where(A <= 0.5, 0, 1)
 
 # Initialize weights with zeros
-w = np.zeros((num_features, 1))
+w = np.zeros((num_features, 1), dtype="float32")
 b = 0.0
 
 # Print some information
