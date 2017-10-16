@@ -47,7 +47,9 @@ proc initializeParameters(layerSizes: openarray[int]): auto =
   for i in 1..<layerSizes.len:
     # Kaiming uniform initialization (He initialisation)
     let std = 1.0f/sqrt((layerSizes[i-1]).float32)
-    let gain = sqrt(2.0f) # ReLU gain
+    var gain = 1.0f # Sigmoid gain
+    if i != layerSizes.len-1:
+      gain = sqrt(2.0f) # ReLU gain
     let bound = gain * std * sqrt(3.0f)
     var W = randomTensor([layerSizes[i], layerSizes[i-1]], -bound..bound)
     let b = zeros[float32]([layerSizes[i], 1])
