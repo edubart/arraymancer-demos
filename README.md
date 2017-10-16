@@ -16,10 +16,9 @@ Simple batch gradient descent is used.
 #### CPU
 | Framework | Backend | Forward+Backward Pass Time  |
 |---|---|---|
-| Arraymancer | OpenMP + MKL | **0.553ms**  |
-| Torch7 | MKL | 0.733ms  |
-| Arraymancer | OpenMP + OpenBLAS | 1.824ms |
-| Numpy | MKL | 8.713ms  |
+| Arraymancer | OpenMP + MKL | **0.458ms**  |
+| Torch7 | MKL | 0.686ms  |
+| Numpy | MKL | 0.723ms  |
 
 #### GPU
 | Framework | Backend | Forward+Backward Pass Time  |
@@ -38,9 +37,8 @@ and the loss is the binary cross entropy. Adam optimizer is used for batch gradi
 #### CPU
 | Framework | Backend | Forward+Backward Pass Time  |
 |---|---|---|
-| Arraymancer | OpenMP + MKL | **6.815ms**  |
-| PyTorch | MKL | 7.320ms  |
-| Arraymancer | OpenMP + OpenBLAS | 11.275ms |
+| Arraymancer | OpenMP + MKL | **2.907ms**  |
+| PyTorch | MKL | 6.797ms  |
 
 #### GPU
 | Framework | Backend | Forward+Backward Pass Time  |
